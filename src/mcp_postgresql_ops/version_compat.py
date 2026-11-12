@@ -85,9 +85,9 @@ class PostgreSQLVersion:
     def has_checkpointer_view(self) -> bool:
         """Check if pg_stat_checkpointer must be used for checkpoint stats (17+).
 
-        The pg_stat_checkpointer view was introduced in PG 15, but checkpoint
-        columns were not removed from pg_stat_bgwriter until PG 17. We gate
-        on 17+ because the combined bgwriter query works on PG 12-16.
+        The pg_stat_checkpointer view was introduced in PG 17, together with the
+        removal of the checkpoint columns from pg_stat_bgwriter. On PG 12-16 the
+        combined pg_stat_bgwriter query is used instead.
         """
         return self.major >= 17
 
