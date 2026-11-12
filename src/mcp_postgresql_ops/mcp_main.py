@@ -262,8 +262,12 @@ async def get_wal_status() -> str:
         # Get WAL status and statistics
         wal_query = """
         SELECT 
-            pg_current_wal_lsn() as current_wal_lsn,
-            pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0') / 1024 / 1024 as wal_mb_generated,
+            -- pg_current_wal_lsn() raises an error on a standby; use the replay LSN there
+            CASE WHEN pg_is_in_recovery() THEN pg_last_wal_replay_lsn() ELSE pg_current_wal_lsn() END as current_wal_lsn,
+            pg_wal_lsn_diff(
+                CASE WHEN pg_is_in_recovery() THEN pg_last_wal_replay_lsn() ELSE pg_current_wal_lsn() END,
+                '0/0'
+            ) / 1024 / 1024 as wal_mb_generated,
             CASE WHEN pg_is_in_recovery() THEN 'Recovery (Standby)' ELSE 'Primary' END as server_role,
             pg_is_in_recovery() as in_recovery
         """
