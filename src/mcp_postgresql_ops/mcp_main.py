@@ -644,7 +644,7 @@ async def get_table_list(database_name: Optional[str] = None) -> str:
             schemaname as schema_name,
             tablename as table_name,
             tableowner as owner,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as size
         FROM pg_tables 
         WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
         ORDER BY schemaname, tablename
@@ -1017,7 +1017,7 @@ async def get_database_schema_info(database_name: str, schema_name: Optional[str
                 SELECT 
                     schemaname,
                     COUNT(*) as table_count,
-                    pg_size_pretty(SUM(pg_total_relation_size(schemaname||'.'||tablename))) as total_size
+                    pg_size_pretty(SUM(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)))) as total_size
                 FROM pg_tables 
                 WHERE schemaname = $1
                 GROUP BY schemaname
@@ -1044,7 +1044,7 @@ async def get_database_schema_info(database_name: str, schema_name: Optional[str
                     'TABLE' as object_type,
                     schemaname || '.' || tablename as object_name,
                     tableowner::text as object_owner,
-                    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as object_size,
+                    pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as object_size,
                     'Base table' as object_description
                 FROM pg_tables 
                 WHERE schemaname = $1
@@ -1131,7 +1131,7 @@ async def get_database_schema_info(database_name: str, schema_name: Optional[str
                     SELECT 
                         schemaname,
                         COUNT(*) as table_count,
-                        SUM(pg_total_relation_size(schemaname||'.'||tablename)) as total_size_bytes
+                        SUM(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as total_size_bytes
                     FROM pg_tables 
                     GROUP BY schemaname
                 ) t ON n.nspname = t.schemaname
@@ -1277,7 +1277,7 @@ async def get_table_relationships(database_name: str, table_name: Optional[str] 
                     schemaname || '.' || tablename as parent_table,
                     'INHERITS' as relationship_type
                 FROM pg_tables pt
-                JOIN pg_inherits i ON i.inhrelid = (pt.schemaname||'.'||pt.tablename)::regclass::oid
+                JOIN pg_inherits i ON i.inhrelid = (quote_ident(pt.schemaname)||'.'||quote_ident(pt.tablename))::regclass::oid
                 JOIN pg_class pc ON i.inhparent = pc.oid
                 JOIN pg_namespace pn ON pc.relnamespace = pn.oid
                 WHERE (pt.tablename = $1 AND pt.schemaname = $2)
@@ -1739,13 +1739,13 @@ async def get_table_size_info(schema_name: str = "public", database_name: Option
         SELECT 
             schemaname as schema_name,
             tablename as table_name,
-            pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) as table_size,
-            pg_size_pretty(pg_indexes_size(schemaname||'.'||tablename)) as index_size,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
-            pg_total_relation_size(schemaname||'.'||tablename) as total_size_bytes
+            pg_size_pretty(pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as table_size,
+            pg_size_pretty(pg_indexes_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as index_size,
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as total_size,
+            pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) as total_size_bytes
         FROM pg_tables 
         WHERE schemaname = $1
-        ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+        ORDER BY pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) DESC
         """
         
         tables = await execute_query(query, [schema_name], database=database_name)
@@ -2081,8 +2081,8 @@ async def get_table_bloat_analysis(database_name: Optional[str] = None, schema_n
         SELECT 
             schemaname as schema_name,
             relname as table_name,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as total_size,
-            pg_size_pretty(pg_relation_size(schemaname||'.'||relname)) as table_size,
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname))) as total_size,
+            pg_size_pretty(pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname))) as table_size,
             n_dead_tup as dead_tuples,
             n_live_tup as live_tuples,
             CASE 
@@ -2090,7 +2090,7 @@ async def get_table_bloat_analysis(database_name: Optional[str] = None, schema_n
                 ELSE round(100.0 * n_dead_tup / (n_live_tup + n_dead_tup), 2)
             END as bloat_ratio_percent,
             pg_size_pretty(
-                (pg_relation_size(schemaname||'.'||relname) * 
+                (pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname)) * 
                 CASE 
                     WHEN (n_live_tup + n_dead_tup) = 0 THEN 0
                     ELSE n_dead_tup::float / (n_live_tup + n_dead_tup)
@@ -2205,14 +2205,14 @@ async def get_database_bloat_overview(database_name: Optional[str] = None, limit
             END as overall_bloat_percent,
             pg_size_pretty(
                 SUM(
-                    pg_relation_size(schemaname||'.'||relname) * 
+                    pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname)) * 
                     CASE 
                         WHEN (n_live_tup + n_dead_tup) = 0 THEN 0
                         ELSE n_dead_tup::float / (n_live_tup + n_dead_tup)
                     END
                 )::bigint
             ) as estimated_total_bloat,
-            pg_size_pretty(SUM(pg_total_relation_size(schemaname||'.'||relname))::bigint) as total_schema_size,
+            pg_size_pretty(SUM(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname)))::bigint) as total_schema_size,
             COUNT(CASE WHEN last_vacuum IS NULL AND last_autovacuum IS NULL THEN 1 END) as never_vacuumed_tables
         FROM pg_stat_user_tables
         GROUP BY schemaname
@@ -2339,7 +2339,7 @@ async def get_autovacuum_status(database_name: Optional[str] = None, schema_name
                 THEN extract(hours from now() - last_autovacuum)::int
                 ELSE NULL 
             END as hours_since_autovacuum,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as table_size
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname))) as table_size
         FROM pg_stat_user_tables
         {where_filter}
         ORDER BY 
@@ -2491,7 +2491,7 @@ async def get_autovacuum_activity(database_name: Optional[str] = None, schema_na
                 WHEN autovacuum_count <= 20 THEN 'High Activity'
                 ELSE 'Very High Activity'
             END as activity_frequency,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as table_size
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname))) as table_size
         FROM pg_stat_user_tables
         {where_filter}
         ORDER BY 
@@ -2750,7 +2750,7 @@ async def get_vacuum_effectiveness_analysis(database_name: Optional[str] = None,
                 WHEN n_dead_tup < (0.15 * n_live_tup + 50) THEN 'GOOD: Well maintained'
                 ELSE 'MODERATE: Needs attention'
             END as vacuum_effectiveness,
-            pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as table_size
+            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(relname))) as table_size
         FROM pg_stat_user_tables
         {where_filter}
         ORDER BY 
