@@ -3077,7 +3077,7 @@ async def get_io_stats(limit: int = 20, database_name: Optional[str] = None) -> 
                 END as hit_ratio_percent
             FROM pg_stat_io
             WHERE reads > 0 OR writes > 0 OR hits > 0 OR extends > 0 OR fsyncs > 0
-            ORDER BY (reads + writes + extends) DESC
+            ORDER BY (COALESCE(reads, 0) + COALESCE(writes, 0) + COALESCE(extends, 0)) DESC
             LIMIT {limit}
             """
             title = f"Comprehensive I/O Statistics (pg_stat_io - PostgreSQL {pg_version})"
@@ -3839,7 +3839,7 @@ async def get_per_backend_io_stats(database_name: Optional[str] = None, limit: i
         FROM pg_stat_activity a
         CROSS JOIN LATERAL pg_stat_get_backend_io(a.pid) bio
         WHERE a.pid <> pg_backend_pid()
-        ORDER BY bio.reads + bio.writes DESC
+        ORDER BY COALESCE(bio.reads, 0) + COALESCE(bio.writes, 0) DESC
         LIMIT {limit}
         """
 
