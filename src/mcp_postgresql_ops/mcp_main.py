@@ -3813,6 +3813,8 @@ async def get_per_backend_io_stats(database_name: Optional[str] = None, limit: i
         # Note: pg_stat_get_backend_io() and pg_stat_get_backend_wal() are PG 18+
         # functions. Column schemas verified against PG 18 GA. Using explicit
         # column lists to avoid duplicate column names (e.g. pid) from bio.*/bwal.*.
+        # PG 18 pg_stat_get_backend_wal() only has wal_records, wal_fpi, wal_bytes and
+        # wal_buffers_full; wal_write/wal_sync (and *_time) moved to pg_stat_io (object = 'wal').
         query = f"""
         SELECT
             a.pid,
@@ -3861,11 +3863,7 @@ async def get_per_backend_io_stats(database_name: Optional[str] = None, limit: i
             bwal.wal_records,
             bwal.wal_fpi,
             bwal.wal_bytes,
-            bwal.wal_buffers_full,
-            bwal.wal_write,
-            bwal.wal_write_time,
-            bwal.wal_sync,
-            bwal.wal_sync_time
+            bwal.wal_buffers_full
         FROM pg_stat_activity a
         CROSS JOIN LATERAL pg_stat_get_backend_wal(a.pid) bwal
         WHERE a.pid <> pg_backend_pid()
