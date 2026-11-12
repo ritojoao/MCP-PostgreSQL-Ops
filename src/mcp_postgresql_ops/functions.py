@@ -127,6 +127,11 @@ def format_duration(seconds: Union[int, float, None]) -> str:
         return f"{seconds/3600:.2f}h"
 
 
+# Columns ending in these suffixes come from pg_stat_statements
+# and are in milliseconds, not seconds.
+MS_TIME_SUFFIXES = ('_exec_time', 'blk_read_time', 'blk_write_time')
+
+
 def format_table_data(data: List[Dict[str, Any]], title: str = "") -> str:
     """Convert table data into formatted string."""
     if not data:
@@ -142,6 +147,8 @@ def format_table_data(data: List[Dict[str, Any]], title: str = "") -> str:
         for key, value in data[0].items():
             if isinstance(value, (int, float)) and key.endswith(('_bytes', '_size')):
                 value = format_bytes(value)
+            elif isinstance(value, (int, float)) and key.endswith(MS_TIME_SUFFIXES):
+                value = format_duration(value / 1000.0)
             elif isinstance(value, (int, float)) and key.endswith(('_time', '_duration')):
                 value = format_duration(value)
             result.append(f"{key}: {value}")
@@ -159,6 +166,8 @@ def format_table_data(data: List[Dict[str, Any]], title: str = "") -> str:
             for key, value in row.items():
                 if isinstance(value, (int, float)) and key.endswith(('_bytes', '_size')):
                     formatted_row.append(format_bytes(value))
+                elif isinstance(value, (int, float)) and key.endswith(MS_TIME_SUFFIXES):
+                    formatted_row.append(format_duration(value / 1000.0))
                 elif isinstance(value, (int, float)) and key.endswith(('_time', '_duration')):
                     formatted_row.append(format_duration(value))
                 else:

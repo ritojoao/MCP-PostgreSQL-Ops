@@ -3824,18 +3824,18 @@ async def get_per_backend_io_stats(database_name: Optional[str] = None, limit: i
             bio.object,
             bio.context,
             bio.reads,
-            bio.read_time,
+            bio.read_time as read_time_ms,
             bio.writes,
-            bio.write_time,
+            bio.write_time as write_time_ms,
             bio.writebacks,
-            bio.writeback_time,
+            bio.writeback_time as writeback_time_ms,
             bio.extends,
-            bio.extend_time,
+            bio.extend_time as extend_time_ms,
             bio.hits,
             bio.evictions,
             bio.reuses,
             bio.fsyncs,
-            bio.fsync_time
+            bio.fsync_time as fsync_time_ms
         FROM pg_stat_activity a
         CROSS JOIN LATERAL pg_stat_get_backend_io(a.pid) bio
         WHERE a.pid <> pg_backend_pid()
@@ -3863,9 +3863,9 @@ async def get_per_backend_io_stats(database_name: Optional[str] = None, limit: i
             bwal.wal_bytes,
             bwal.wal_buffers_full,
             bwal.wal_write,
-            bwal.wal_write_time,
+            bwal.wal_write_time as wal_write_time_ms,
             bwal.wal_sync,
-            bwal.wal_sync_time
+            bwal.wal_sync_time as wal_sync_time_ms
         FROM pg_stat_activity a
         CROSS JOIN LATERAL pg_stat_get_backend_wal(a.pid) bwal
         WHERE a.pid <> pg_backend_pid()
