@@ -2336,7 +2336,7 @@ async def get_autovacuum_status(database_name: Optional[str] = None, schema_name
             last_autovacuum,
             CASE 
                 WHEN last_autovacuum IS NOT NULL 
-                THEN extract(hours from now() - last_autovacuum)::int
+                THEN floor(extract(epoch from now() - last_autovacuum)/3600)::int
                 ELSE NULL 
             END as hours_since_autovacuum,
             pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as table_size
@@ -2463,13 +2463,13 @@ async def get_autovacuum_activity(database_name: Optional[str] = None, schema_na
             -- Calculate time since last autovacuum
             CASE 
                 WHEN last_autovacuum IS NOT NULL 
-                THEN extract(hours from now() - last_autovacuum)::int
+                THEN floor(extract(epoch from now() - last_autovacuum)/3600)::int
                 ELSE NULL 
             END as hours_since_autovacuum,
             -- Calculate time since last autoanalyze
             CASE 
                 WHEN last_autoanalyze IS NOT NULL 
-                THEN extract(hours from now() - last_autoanalyze)::int
+                THEN floor(extract(epoch from now() - last_autoanalyze)/3600)::int
                 ELSE NULL 
             END as hours_since_autoanalyze,
             -- Activity classification
@@ -2739,7 +2739,7 @@ async def get_vacuum_effectiveness_analysis(database_name: Optional[str] = None,
             GREATEST(last_vacuum, last_autovacuum) as last_any_vacuum,
             CASE 
                 WHEN GREATEST(last_vacuum, last_autovacuum) IS NOT NULL 
-                THEN extract(hours from now() - GREATEST(last_vacuum, last_autovacuum))::int
+                THEN floor(extract(epoch from now() - GREATEST(last_vacuum, last_autovacuum))/3600)::int
                 ELSE NULL 
             END as hours_since_last_vacuum,
             -- Effectiveness assessment
