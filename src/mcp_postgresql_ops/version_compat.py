@@ -183,16 +183,16 @@ async def get_postgresql_version(database: str = None, force_refresh: bool = Fal
         else:
             logger.warning(f"Could not parse version string: {version_string}")
             # Default to PostgreSQL 12 (minimum supported) if parsing fails
-            # so queries degrade gracefully on any version
-            _cached_version = PostgreSQLVersion(12, 0, 0)
-            return _cached_version
+            # so queries degrade gracefully on any version.
+            # Not cached, so the next call retries detection.
+            return PostgreSQLVersion(12, 0, 0)
 
     except Exception as e:
         logger.error(f"Failed to get PostgreSQL version: {e}")
         # Default to PostgreSQL 12 (minimum supported) if version detection fails
-        # so queries degrade gracefully on any version
-        _cached_version = PostgreSQLVersion(12, 0, 0)
-        return _cached_version
+        # so queries degrade gracefully on any version.
+        # Not cached (e.g. DB starting up), so the next call retries detection.
+        return PostgreSQLVersion(12, 0, 0)
 
 async def check_feature_availability(feature: str, database: str = None) -> bool:
     """

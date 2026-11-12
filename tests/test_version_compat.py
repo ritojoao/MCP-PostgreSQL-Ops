@@ -303,3 +303,46 @@ class TestVersionAwareQueriesSQL:
             VersionAwareQueries.get_all_tables_stats_query, 16, include_system=False
         )
         assert "pg_stat_user_tables" in query
+
+
+class TestVersionDetectionRetry:
+    """A failed detection must not be cached, so the next call retries."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_cache(self, monkeypatch):
+        import mcp_postgresql_ops.version_compat as vc
+        monkeypatch.setattr(vc, "_cached_version", None)
+
+    @pytest.mark.asyncio
+    async def test_exception_is_not_cached(self, monkeypatch):
+        import mcp_postgresql_ops.version_compat as vc
+        calls = []
+
+        async def fake_query(*args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise ConnectionError("database is starting up")
+            return {"version": "PostgreSQL 17.2 on x86_64-pc-linux-gnu, compiled by gcc"}
+
+        monkeypatch.setattr(vc, "execute_single_query", fake_query)
+
+        first = await vc.get_postgresql_version()
+        assert first.major == 12  # fallback for this call only
+        second = await vc.get_postgresql_version()
+        assert second.major == 17
+        # Successful detection is cached
+        await vc.get_postgresql_version()
+        assert len(calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_unparsable_version_is_not_cached(self, monkeypatch):
+        import mcp_postgresql_ops.version_compat as vc
+        results = iter([{"version": "unknown"}, {"version": "PostgreSQL 16.4 on x86_64"}])
+
+        async def fake_query(*args, **kwargs):
+            return next(results)
+
+        monkeypatch.setattr(vc, "execute_single_query", fake_query)
+
+        assert (await vc.get_postgresql_version()).major == 12
+        assert (await vc.get_postgresql_version()).major == 16
